@@ -23,14 +23,14 @@ class _rme_print_tree(_print_tree):
         return "%s (%s)" % (type(node.obj).__name__, sizeof_fmt(node.total_size))
 
 
-def pprint_obj(obj: object):
+def mem_print(*args):
     inst = RememberMe()
-    node = inst.single(obj)
-    _rme_print_tree(node)
+    if len(args) == 0:
+        frame = inspect.stack()[1].frame
+        node = inst.local(frame)
+        _rme_print_tree(node)
+    else:
+        inst = RememberMe()
+        node = inst.single(args)
+        _rme_print_tree(node)
 
-
-def pprint_frame():
-    inst = RememberMe()
-    frame = inspect.stack()[1].frame
-    node = inst.local(frame)
-    _rme_print_tree(node)
