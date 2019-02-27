@@ -20,7 +20,7 @@ class _rme_print_tree(_print_tree):
         return node.children
 
     def get_node_str(self, node: Node):
-        return "%s (%s)" % (type(node.obj).__name__, sizeof_fmt(node.total_size))
+        return "%s(%s)" % (type(node.obj).__name__, sizeof_fmt(node.total_size))
 
 
 def mem_print(*args):
