@@ -38,10 +38,23 @@ class RememberMe(object):
         node.total_size -= sys.getsizeof(values)
         return node
 
+    def _get_skipset(self, obj):
+        skip_set = set()
+        if inspect.isfunction(obj):
+            attr = hasattr(obj, "__globals__")
+            if attr is not None:
+                skip_set.add(id(getattr(obj, "__globals__")))
+        return skip_set
+
     def single(self, obj: object) -> Node:
-        referents = gc.get_referents(obj)
         parent = Node(obj)
+        referents = gc.get_referents(obj)
+        skip_set = self._get_skipset(obj)
         for referent in referents:
+            if inspect.ismodule(referent):
+                continue
+            if id(referent) in skip_set:
+                continue
             if id(referent) in self.finished_dict:
                 finished_node = self.finished_dict[id(referent)]
                 parent.add_child(finished_node, self.finished_dict)

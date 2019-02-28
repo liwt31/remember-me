@@ -53,3 +53,17 @@ def test_top():
     c = [1]
     res = top()
     assert [entry[0] for entry in res[:3]] == [a, b, c]
+    class Node:
+        def __init__(self, data):
+            self.data = data
+    n = Node(a)
+    # the instance is the largest
+    assert top(n)[0] == (n, memory(n))
+    # the type is the second
+    assert top(n)[1] == (Node, memory(Node))
+
+
+def test_module():
+    import os
+    l = [os, 1]
+    assert memory(l) == getsizeof(l) + getsizeof(1)
