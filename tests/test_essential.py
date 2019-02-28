@@ -2,7 +2,7 @@
 
 from sys import getsizeof
 
-from rememberme import memory, local_memory, top
+from rememberme import memory, top
 
 
 def test_builtin():
@@ -29,7 +29,7 @@ def test_locals():
     b = None
     c = False
     d = dict()
-    assert memory(a, b, c, d) == local_memory()
+    assert memory(a, b, c, d) == memory()
 
 
 def test_dag():

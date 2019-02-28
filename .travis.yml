@@ -8,5 +8,9 @@ python:
 install:
     - pip install print-tree2
 
+
+before_script:
+    - pip install numpy
+
 script:
     - pytest

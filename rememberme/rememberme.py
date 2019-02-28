@@ -46,11 +46,17 @@ class RememberMe(object):
                 skip_set.add(id(getattr(obj, "__globals__")))
         return skip_set
 
+    def _get_referents(self, obj) -> List:
+        referents = gc.get_referents(obj)
+        # use this to determine ndarray without importing numpy
+        if hasattr(obj, "__array_finalize__") and hasattr(obj, "base") and obj.base is not None:
+            referents.append(obj.base)
+        return referents
+
     def single(self, obj: object) -> Node:
         parent = Node(obj)
-        referents = gc.get_referents(obj)
         skip_set = self._get_skipset(obj)
-        for referent in referents:
+        for referent in self._get_referents(obj):
             if inspect.ismodule(referent):
                 continue
             if id(referent) in skip_set:
@@ -70,14 +76,14 @@ class RememberMe(object):
 
 def memory(*obj: object) -> int:
     inst = RememberMe()
-    return inst.single(obj).total_size - sys.getsizeof(obj)
+    if len(obj) == 0:
+        # the caller frame
+        frame = inspect.stack()[1].frame
+        inst = RememberMe()
+        return inst.local(frame).total_size
+    else:
+        return inst.single(obj).total_size - sys.getsizeof(obj)
 
-
-def local_memory() -> int:
-    # the caller frame
-    frame = inspect.stack()[1].frame
-    inst = RememberMe()
-    return inst.local(frame).total_size
 
 def top(*obj: object) -> List[Tuple[object, int]]:
     inst = RememberMe()
