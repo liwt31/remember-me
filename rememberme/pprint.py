@@ -33,4 +33,3 @@ def mem_print(*args):
         inst = RememberMe()
         node = inst.single(args)
         _rme_print_tree(node)
-

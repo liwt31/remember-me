@@ -10,7 +10,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/liwt31/remember-me",
-    install_requires=['print-tree2'],
+    install_requires=["print-tree2"],
     license="MIT",
     author="Weitang Li",
     author_email="liwt31@163.com",

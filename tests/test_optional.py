@@ -6,6 +6,7 @@ import pytest
 
 from rememberme import memory
 
+
 def test_numpy():
     try:
         import numpy as np

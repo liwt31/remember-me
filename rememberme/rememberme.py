@@ -49,7 +49,11 @@ class RememberMe(object):
     def _get_referents(self, obj) -> List:
         referents = gc.get_referents(obj)
         # use this to determine ndarray without importing numpy
-        if hasattr(obj, "__array_finalize__") and hasattr(obj, "base") and obj.base is not None:
+        if (
+            hasattr(obj, "__array_finalize__")
+            and hasattr(obj, "base")
+            and obj.base is not None
+        ):
             referents.append(obj.base)
         return referents
 
