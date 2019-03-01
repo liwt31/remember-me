@@ -4,6 +4,11 @@
 RememberMe is a handy tool for memory problems in Python. It computes the total memory usage of
 Python objects.
 
+## Installation
+```bash
+pip install rememberme
+```
+
 ## RememberMe is a replacement for `sys.getsizeof`
 `sys.getsizeof` is almost confusing in Python:
 ```python
@@ -29,7 +34,7 @@ def foo():
     a = [1, 2, 3]
     b = [a, a, a]
     return memory()
-print(foo())  # 260 bytes! Note `a` is included in `b`.
+print(foo())  # 260 bytes. Note `a` is included in `b`.
 ```
 Check out top memory consumers:
 ```python
@@ -64,9 +69,10 @@ list (260.0B)┼list (172.0B)┼int (28.0B)
 ```
 
 ## Known issues and limitations
-* For better performance, the global dict, as well as modules, are not included in 
-the memory usage of any objects.
+* For better performance (and making better sense), the global dict, as well as modules, 
+are not included in the memory usage of any objects.
 * We essentially relies on [`tp_traverse`](https://docs.python.org/3/c-api/typeobj.html#c.PyTypeObject.tp_traverse) 
 to traverse the object graph. For C extensions, memory usage might be underestimated under
 various circumstances. For the most common `numpy.ndarray`, a specific procedure is defined to
-probe the memory usage correctly, but no correctness is guaranteed for other C extensions.
+probe the memory usage correctly, but no correctness is guaranteed for other C extensions,
+which may have undetectable momery leaks within themselves.
