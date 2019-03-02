@@ -4,11 +4,6 @@
 RememberMe is a handy tool for memory problems in Python. It computes the total memory usage of
 Python objects.
 
-## Installation
-```bash
-pip install rememberme
-```
-
 ## RememberMe is a replacement for `sys.getsizeof`
 `sys.getsizeof` is almost confusing in Python:
 ```python
@@ -24,6 +19,11 @@ a = [1, 2, 3]
 b = [a, a, a]
 print(memory(a))  # 172 bytes!
 print(memory(b))  # 260 bytes!
+```
+
+## Installation
+```bash
+pip install rememberme
 ```
 
 ## More features

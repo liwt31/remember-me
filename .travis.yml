@@ -7,10 +7,12 @@ python:
 
 install:
     - pip install print-tree2
+    - pip install cython
 
 
 before_script:
     - pip install numpy
+    - python setup.py build_ext -i
 
 script:
     - pytest
