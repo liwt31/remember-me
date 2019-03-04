@@ -33,8 +33,8 @@ from rememberme import memory
 def foo():
     a = [1, 2, 3]
     b = [a, a, a]
-    return memory()
-print(foo())  # 260 bytes. Note `a` is included in `b`.
+    print memory()
+foo()  # 260 bytes. Note `a` is included in `b`.
 ```
 Check out top memory consumers:
 ```python
@@ -42,9 +42,9 @@ from rememberme import top
 def foo():
     a = [1, 2, 3]
     b = [a, a, a]
-    return top()  # with no args, check current frame
-print(foo()[0])  # `b` and its memory usage
-print(foo()[1])  # `a` and its memory usage
+    mem_top = top()  # with no args, check current frame
+    print(mem_top[0])  # `b` and its memory usage
+    print(mem_top[1])  # `a` and its memory usage
 ```
 Even pretty print the result!
 ```python

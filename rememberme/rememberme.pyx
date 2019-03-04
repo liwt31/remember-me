@@ -10,15 +10,28 @@ import inspect
 from typing import List, Dict, Tuple
 
 cimport cython
-from libcpp.unordered_set cimport unordered_set as set
-from libcpp.unordered_map cimport unordered_map as map
+
+cdef extern from "Python.h":
+    object PyObject_CallFunctionObjArgs(object callable, ...)
+    int PyCallable_Check(object o)
 
 
-ctypedef void* optr  # object pointer
-ctypedef void* nptr  # node pointer
+ctypedef Py_ssize_t size_t
 
-cdef object getsizeof = sys.getsizeof
-cdef object get_referents = gc.get_referents
+cdef object _getsizeof = sys.getsizeof
+cdef object _get_referents = gc.get_referents
+
+
+if PyCallable_Check(_getsizeof) == 0:
+    raise ValueError("sys.getsizeof not callable")
+
+
+cdef inline size_t getsizeof(object obj):
+    return PyObject_CallFunctionObjArgs(_getsizeof, <void*>obj, NULL) 
+
+
+if PyCallable_Check(_get_referents) == 0:
+    raise ValueError("gc.get_referents not callable")
 
 cdef type module_type = type(sys)
 
@@ -27,65 +40,62 @@ def _foo(): pass
 cdef type function_type = type(_foo)
 
 
-cdef intersection(set[optr]& s1, set[optr]& s2, set[optr]& dst):
-    if s2.size() < s1.size():
-        intersection(s2, s1, dst)
-        return
-    # s1.size <= s2.size
-    for elem in s1:
-        if s2.find(elem) != s2.end():
-            dst.insert(elem)
-    
-
-@cython.freelist(8)
+@cython.freelist(16)
 @cython.no_gc
 cdef class Node(object):
     cdef readonly:
         object obj
         list children
     cdef:
-        int self_size
-        int total_size
-        set[optr] included_set
-
-    def __cinit__(self, object obj, bint leaf):
-        self.obj = obj
-        self.self_size = getsizeof(obj)
-        self.total_size = -1  # flag to indicate leaf
-        # not a leaf, need to init a lot
-        if leaf == 0:
-            self.children = []
-            self.included_set = set[optr]()
-            self.included_set.insert(<optr>obj)
-            self.total_size = self.size
+        size_t self_size
+        size_t total_size
+        set included_set
 
     @property
     def size(self):
-        return self.self_size if self.total_size < 0 else self.total_size
+        return self.self_size if self.total_size == 0 else self.total_size
 
 
-cdef add_child(Node parent, Node child, map[optr, nptr]* finished_dict):
+cdef inline Node get_leaf_node(object obj):
+    cdef Node n = Node()
+    n.obj = obj
+    n.self_size = getsizeof(obj)
+    n.total_size = 0  # flag to indicate leaf
+    return n
+
+
+cdef Node get_nonleaf_node(object obj):
+    # not a leaf, need to init a lot
+    cdef Node n = Node()
+    cdef size_t size = getsizeof(obj)
+    n.obj = obj
+    n.self_size = size
+    n.total_size = size
+    n.children = []
+    n.included_set = {id(obj), }
+    return n
+
+cdef void add_child(Node parent, Node child, dict finished_dict):
     parent.children.append(child)
-    p_included_set = &parent.included_set
-    if child.total_size < 0:
-        child_obj = <optr>child.obj
-        if p_included_set[0].find(child_obj) != p_included_set[0].end():
+    p_included_set = parent.included_set
+    if child.total_size == 0:
+        child_id = id(child.obj)
+        if child_id in p_included_set:
             return
         parent.total_size += child.self_size
-        p_included_set[0].insert(child_obj)
+        p_included_set.add(child_id)
         return
     parent.total_size += child.total_size
-    cdef set[optr] overlap_set = set[optr]()
-    intersection(p_included_set[0], child.included_set, overlap_set)
+    cdef set overlap_set = p_included_set.intersection(child.included_set)
     for obj_id in overlap_set:
-        n = <Node>finished_dict[0][obj_id]
+        n = <Node>finished_dict[obj_id]
         parent.total_size -= n.self_size
     for c in child.included_set:
-        p_included_set[0].insert(c)
+        p_included_set.add(c)
 
 
-cdef list _get_referents(obj):
-    referents = get_referents(obj)
+cdef inline list get_referents(obj):
+    cdef list referents = PyObject_CallFunctionObjArgs(_get_referents, <void*>obj, NULL)
     # use this to determine ndarray without importing numpy
     if (
         hasattr(obj, "__array_finalize__")
@@ -95,19 +105,19 @@ cdef list _get_referents(obj):
         referents.append(obj.base)
     return referents
 
-cdef _get_skipset(obj, set[optr] &skip_set):
-    if isinstance(obj, function_type):
-        if hasattr(obj, "__globals__"):
-            skip_set.insert(<optr>obj.__globals__)
 
 
 cdef class RememberMe(object):
-    cdef set[optr] visited_set
-    cdef map[optr, nptr] finished_dict
+    cdef set skip_set
+    cdef set visited_set
+    cdef dict finished_dict
 
     def __init__(self):
-        self.visited_set = set[optr]()
-        self.finished_dict = map[optr, nptr]()
+        self.skip_set = set()
+        self.visited_set = set()
+        self.finished_dict = dict()
+        for f in inspect.stack():
+            self.skip_set.add(id(f.frame.f_globals))
 
     cdef Node local(self, frame):
         values = tuple(frame.f_locals.values())
@@ -115,45 +125,33 @@ cdef class RememberMe(object):
         return node
 
     cdef Node single(self, object obj):
-        finished_dict = &self.finished_dict
-        cdef list referents = _get_referents(obj)
+        finished_dict = self.finished_dict
+        obj_id = id(obj)
+        cdef list referents = get_referents(obj)
         # print(obj, referents)
         if len(referents) == 0:
-            node = <Node>Node.__new__(Node, obj, True)
-            finished_dict[0][<optr>obj] = <nptr>node
+            node = get_leaf_node(obj)
+            finished_dict[obj_id] = node
             return node
-        # these boilerplates are all for better performance
-        cdef Node parent = <Node>Node.__new__(Node, obj, False)
-        cdef set[optr] skip_set = set[optr]()
-        _get_skipset(obj, skip_set)
+        parent = get_nonleaf_node(obj)
         for referent in referents:
             if isinstance(referent, module_type):
                 continue
-            ref_id = <optr>referent
-            if skip_set.find(ref_id) != skip_set.end():
+            ref_id = id(referent)
+            if ref_id in self.skip_set:
                 continue
-            if finished_dict.find(ref_id) != finished_dict.end():
-                finished_node = <Node>finished_dict[0][ref_id]
+            if ref_id in finished_dict:
+                finished_node = <Node>finished_dict[ref_id]
                 add_child(parent, finished_node, finished_dict)
                 continue
-            if self.visited_set.find(ref_id) != self.visited_set.end():
+            if ref_id in self.visited_set:
                 # a random way to break cycles
                 continue
-            self.visited_set.insert(ref_id)
+            self.visited_set.add(ref_id)
             referent_node = self.single(referent)
             add_child(parent, referent_node, finished_dict)
-        finished_dict[0][<optr>obj] = <nptr>parent
+        finished_dict[obj_id] = parent
         return parent
-
-
-cdef list map_to_list(map[optr, nptr]& m):
-    res = []
-    for pair in m:
-        node = <Node>pair.second
-        obj = node.obj
-        sz = node.size
-        res.append((obj, sz))
-    return res
 
 
 def memory_node(inst: RememberMe, stack_idx: int, *obj: object) -> Node:
@@ -181,7 +179,7 @@ def memory(*obj: object) -> int:
 def top(*obj: object) -> List[Tuple[object, int]]:
     inst = RememberMe()
     _ = memory_node(inst, 0, *obj)
-    res = map_to_list(inst.finished_dict)
+    res = [(node.obj, node.size) for node in inst.finished_dict.values()]
     res.sort(reverse=True, key=lambda x: x[1])
     # remove the size of the tuple from the final result
     if len(obj) != 1:

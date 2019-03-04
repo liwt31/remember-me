@@ -13,7 +13,7 @@ os.environ['CFLAGS'] = "-std=c++11"
 setuptools.setup(
     name="rememberme",
     ext_modules=ext,
-    version="0.1.0",
+    version="0.1.1",
     packages=setuptools.find_packages(),
     long_description=long_description,
     long_description_content_type="text/markdown",

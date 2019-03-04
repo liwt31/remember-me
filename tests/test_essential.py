@@ -65,6 +65,12 @@ def test_top():
     assert top(n)[1] == (Node, memory(Node))
 
 
+def test_globals():
+    g = globals()
+    l = [g, 1]
+    assert memory(l) == getsizeof(l) + getsizeof(1)
+
+
 def test_module():
     import os
 
