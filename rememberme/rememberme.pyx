@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-# distutils: language=c++
 # cython: language_level=3
-# cython: profile=True
-# cython: linetrace=True
+## cython: profile=True
+## cython: linetrace=True
 
 import sys
 import gc
@@ -11,6 +10,7 @@ from typing import List, Dict, Tuple
 
 cimport cython
 from cpython.module cimport PyModule_Check
+from cpython.function cimport PyFunction_Check
 from cpython.object cimport PyCallable_Check, PyObject_CallFunctionObjArgs
 from cpython.exc cimport PyErr_CheckSignals
 
@@ -111,6 +111,10 @@ cdef class RememberMe(object):
         for f in inspect.stack():
             self.skip_set.add(id(f.frame.f_globals))
 
+    cdef void update_skipset(self, obj):
+        if PyFunction_Check(obj):
+            self.skip_set.add(id(obj.__globals__))
+
     cdef Node local(self, frame):
         values = tuple(frame.f_locals.values())
         node = self.single(values)
@@ -125,6 +129,7 @@ cdef class RememberMe(object):
             node = get_leaf_node(obj)
             finished_dict[obj_id] = node
             return node
+        self.update_skipset(obj)
         parent = get_nonleaf_node(obj)
         for referent in referents:
             if PyModule_Check(referent):
@@ -143,6 +148,7 @@ cdef class RememberMe(object):
             referent_node = self.single(referent)
             add_child(parent, referent_node, finished_dict)
         finished_dict[obj_id] = parent
+        # a not very often position
         PyErr_CheckSignals()
         return parent
 

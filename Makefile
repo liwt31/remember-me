@@ -5,7 +5,7 @@ format:
 
 build:
 	rm -rf dist/
-	python setup.py sdist bdist_wheel
+	python setup.py sdist
 
 publish: build
 	twine upload -s dist/*

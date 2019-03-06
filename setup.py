@@ -8,8 +8,6 @@ with open("README.md", "rb") as fin:
 
 ext = cythonize("rememberme/rememberme.pyx")
 
-os.environ['CFLAGS'] = "-std=c++11"
-
 setuptools.setup(
     name="rememberme",
     ext_modules=ext,
