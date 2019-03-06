@@ -10,34 +10,25 @@ import inspect
 from typing import List, Dict, Tuple
 
 cimport cython
-
-cdef extern from "Python.h":
-    object PyObject_CallFunctionObjArgs(object callable, ...)
-    int PyCallable_Check(object o)
-
+from cpython.module cimport PyModule_Check
+from cpython.object cimport PyCallable_Check, PyObject_CallFunctionObjArgs
+from cpython.exc cimport PyErr_CheckSignals
 
 ctypedef Py_ssize_t size_t
 
 cdef object _getsizeof = sys.getsizeof
+
 cdef object _get_referents = gc.get_referents
 
 
 if PyCallable_Check(_getsizeof) == 0:
     raise ValueError("sys.getsizeof not callable")
 
+if PyCallable_Check(_get_referents) == 0:
+    raise ValueError("sys.getsizeof not callable")
 
 cdef inline size_t getsizeof(object obj):
     return PyObject_CallFunctionObjArgs(_getsizeof, <void*>obj, NULL) 
-
-
-if PyCallable_Check(_get_referents) == 0:
-    raise ValueError("gc.get_referents not callable")
-
-cdef type module_type = type(sys)
-
-def _foo(): pass
-
-cdef type function_type = type(_foo)
 
 
 @cython.freelist(16)
@@ -51,6 +42,8 @@ cdef class Node(object):
         size_t total_size
         set included_set
 
+    # the function is rarely called in the main loop, make it a
+    # Python function should be OK
     @property
     def size(self):
         return self.self_size if self.total_size == 0 else self.total_size
@@ -95,7 +88,7 @@ cdef void add_child(Node parent, Node child, dict finished_dict):
 
 
 cdef inline list get_referents(obj):
-    cdef list referents = PyObject_CallFunctionObjArgs(_get_referents, <void*>obj, NULL)
+    cdef list referents = <list>PyObject_CallFunctionObjArgs(_get_referents, <void*>obj, NULL)
     # use this to determine ndarray without importing numpy
     if (
         hasattr(obj, "__array_finalize__")
@@ -104,7 +97,6 @@ cdef inline list get_referents(obj):
     ):
         referents.append(obj.base)
     return referents
-
 
 
 cdef class RememberMe(object):
@@ -135,7 +127,7 @@ cdef class RememberMe(object):
             return node
         parent = get_nonleaf_node(obj)
         for referent in referents:
-            if isinstance(referent, module_type):
+            if PyModule_Check(referent):
                 continue
             ref_id = id(referent)
             if ref_id in self.skip_set:
@@ -151,6 +143,7 @@ cdef class RememberMe(object):
             referent_node = self.single(referent)
             add_child(parent, referent_node, finished_dict)
         finished_dict[obj_id] = parent
+        PyErr_CheckSignals()
         return parent
 
 
