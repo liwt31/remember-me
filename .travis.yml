@@ -12,7 +12,6 @@ install:
 
 before_script:
     - pip install numpy
-    - python setup.py build_ext -i
 
 script:
-    - pytest
+    - make test

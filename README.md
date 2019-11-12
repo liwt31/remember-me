@@ -33,7 +33,7 @@ from rememberme import memory
 def foo():
     a = [1, 2, 3]
     b = [a, a, a]
-    print memory()
+    print(memory())
 foo()  # 260 bytes. Note `a` is included in `b`.
 ```
 Check out top memory consumers:

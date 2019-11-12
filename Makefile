@@ -11,4 +11,5 @@ publish: build
 	twine upload -s dist/*
 
 test:
-	pytest
+	python setup.py build_ext -i
+	pytest --durations=1
